@@ -5,23 +5,25 @@ const request = require('supertest')
 const assert = require('node:assert/strict')
 const Koa = require('../..')
 
-describe('app.compose', () => {
-  it('should work with default compose ', async () => {
-    const app = new Koa()
+describe('Compose', () => {
+  it('should support Promise-based middleware', async () => {
     const calls = []
+    const app = new Koa()
 
     app.use((ctx, next) => {
       calls.push(1)
       return next().then(() => {
-        calls.push(4)
+        calls.push(3)
       })
     })
 
     app.use((ctx, next) => {
       calls.push(2)
-      return next().then(() => {
-        calls.push(3)
-      })
+      return next()
+    })
+
+    app.use((ctx) => {
+      calls.push(4)
     })
 
     await request(app.callback())

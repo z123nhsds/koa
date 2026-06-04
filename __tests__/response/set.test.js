@@ -28,6 +28,21 @@ describe('ctx.set(name, val)', () => {
     ctx.set('x-foo', ['foo', 'bar', 123])
     assert.deepStrictEqual(ctx.response.header['x-foo'], ['foo', 'bar', 123])
   })
+
+  it('should throw when setting Content-Type with array value', () => {
+    const ctx = context()
+    assert.throws(() => {
+      ctx.set('Content-Type', ['text/plain', 'text/html'])
+    }, {
+      message: 'Assign multiple Content-Type for response header is not allowed'
+    })
+  })
+
+  it('should allow setting Content-Type as a single string value', () => {
+    const ctx = context()
+    ctx.set('Content-Type', 'text/plain')
+    assert.strictEqual(ctx.response.get('Content-Type'), 'text/plain')
+  })
 })
 
 describe('ctx.set(object)', () => {
