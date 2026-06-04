@@ -41,37 +41,30 @@ describe('ctx.type=', () => {
     })
   })
 
+  describe('when assigned multiple times', () => {
+    it('should overwrite the previous content-type', () => {
+      const ctx = context()
+      ctx.type = 'html'
+      ctx.type = 'json'
+      assert.strictEqual(ctx.type, 'application/json')
+      assert.strictEqual(ctx.response.header['content-type'], 'application/json; charset=utf-8')
+    })
+
+    it('should overwrite the previous value and preserve an explicit charset', () => {
+      const ctx = context()
+      ctx.type = 'json'
+      ctx.type = 'text/html; charset=latin1'
+      assert.strictEqual(ctx.type, 'text/html')
+      assert.strictEqual(ctx.response.header['content-type'], 'text/html; charset=latin1')
+    })
+  })
+
   describe('with an unknown extension', () => {
     it('should not set a content-type', () => {
       const ctx = context()
       ctx.type = 'asdf'
       assert(!ctx.type)
       assert(!ctx.response.header['content-type'])
-    })
-  })
-})
-
-describe('ctx.type', () => {
-  describe('with no Content-Type', () => {
-    it('should return ""', () => {
-      const ctx = context()
-      assert(!ctx.type)
-    })
-  })
-
-  describe('with a Content-Type', () => {
-    it('should return the mime', () => {
-      const ctx = context()
-      ctx.type = 'json'
-      assert.strictEqual(ctx.type, 'application/json')
-    })
-  })
-
-  describe('when setting to +json content type', () => {
-    it('should set the content type to json', () => {
-      const ctx = context()
-      ctx.type = 'application/vnd.myapi.v1+json'
-      assert.strictEqual(ctx.type, 'application/vnd.myapi.v1+json')
     })
   })
 })

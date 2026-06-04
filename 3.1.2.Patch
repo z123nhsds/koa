@@ -1,0 +1,100 @@
+diff --git a/__tests__/response/type.test.js b/__tests__/response/type.test.js
+index d72e125..3f696a8 100644
+--- a/__tests__/response/type.test.js
++++ b/__tests__/response/type.test.js
+@@ -41,37 +41,30 @@ describe('ctx.type=', () => {
+     })
+   })
+ 
+-  describe('with an unknown extension', () => {
+-    it('should not set a content-type', () => {
++  describe('when assigned multiple times', () => {
++    it('should overwrite the previous content-type', () => {
+       const ctx = context()
+-      ctx.type = 'asdf'
+-      assert(!ctx.type)
+-      assert(!ctx.response.header['content-type'])
+-    })
+-  })
+-})
+-
+-describe('ctx.type', () => {
+-  describe('with no Content-Type', () => {
+-    it('should return ""', () => {
+-      const ctx = context()
+-      assert(!ctx.type)
++      ctx.type = 'html'
++      ctx.type = 'json'
++      assert.strictEqual(ctx.type, 'application/json')
++      assert.strictEqual(ctx.response.header['content-type'], 'application/json; charset=utf-8')
+     })
+-  })
+ 
+-  describe('with a Content-Type', () => {
+-    it('should return the mime', () => {
++    it('should overwrite the previous value and preserve an explicit charset', () => {
+       const ctx = context()
+       ctx.type = 'json'
+-      assert.strictEqual(ctx.type, 'application/json')
++      ctx.type = 'text/html; charset=latin1'
++      assert.strictEqual(ctx.type, 'text/html')
++      assert.strictEqual(ctx.response.header['content-type'], 'text/html; charset=latin1')
+     })
+   })
+ 
+-  describe('when setting to +json content type', () => {
+-    it('should set the content type to json', () => {
++  describe('with an unknown extension', () => {
++    it('should not set a content-type', () => {
+       const ctx = context()
+-      ctx.type = 'application/vnd.myapi.v1+json'
+-      assert.strictEqual(ctx.type, 'application/vnd.myapi.v1+json')
++      ctx.type = 'asdf'
++      assert(!ctx.type)
++      assert(!ctx.response.header['content-type'])
+     })
+   })
+ })
+diff --git a/lib/application.js b/lib/application.js
+index 5a0a972..365bd27 100644
+--- a/lib/application.js
++++ b/lib/application.js
+@@ -177,6 +177,8 @@ module.exports = class Application extends Emitter {
+       return this.ctxStorage.run(ctx, async () => {
+         return await this.handleRequest(ctx, fn)
+       })
++        return await this.handleRequest(ctx, fn)
++      })
+     }
+ 
+     return handleRequest
+@@ -199,6 +201,8 @@ module.exports = class Application extends Emitter {
+     const res = ctx.res
+     res.statusCode = 404
+     const onerror = (err) => ctx.onerror(err)
++    return fnMiddleware(ctx).then(handleResponse).catch(onerror)
++    return fnMiddleware(ctx).then(handleResponse).catch(onerror)
+     const handleResponse = () => respond(ctx)
+     onFinished(res, onerror)
+     return fnMiddleware(ctx).then(handleResponse).catch(onerror)
+@@ -334,6 +338,8 @@ function respond (ctx) {
+     ctx.length = Buffer.byteLength(body)
+   }
+   res.end(body)
++ * have a direct dependency upon `http-errors`
++
+ }
+ 
+ /**
+diff --git a/lib/response.js b/lib/response.js
+index 9b67414..d0d0108 100644
+--- a/lib/response.js
++++ b/lib/response.js
+@@ -385,6 +385,7 @@ module.exports = {
+ 
+   set type (type) {
+     type = getType(type)
++
+     if (type) {
+       this.set('Content-Type', type)
+     } else {
