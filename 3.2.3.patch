@@ -1,0 +1,13 @@
+diff --git a/lib/response.js b/lib/response.js
+index 9b67414..ab77b6e 100644
+--- a/lib/response.js
++++ b/lib/response.js
+@@ -543,7 +543,7 @@ module.exports = {
+       }
+       this.res.setHeader(field, val)
+     } else {
+-      Object.keys(field).forEach(header => this.res.setHeader(header, field[header]))
++      Object.keys(field).forEach(header => this.set(header, field[header]))
+     }
+   },
+ 
