@@ -1,0 +1,46 @@
+diff --git a/lib/response.js b/lib/response.js
+index 0000000..0000000
+--- a/lib/response.js
++++ b/lib/response.js
+@@ -536,6 +536,9 @@ module.exports = {
+ 
+   set (field, val) {
+     if (this.headerSent || !field) return
+ 
+     if (typeof field === 'string') {
++      if (field.toLowerCase() === 'content-type') {
++        assert(!Array.isArray(val), 'Assign multiple Content-Type for response header is not allowed')
++      }
+       this.res.setHeader(field, val)
+     } else {
+       Object.keys(field).forEach(header => this.res.setHeader(header, field[header]))
+diff --git a/__tests__/application/response.test.js b/__tests__/application/response.test.js
+index 0000000..0000000
+--- a/__tests__/application/response.test.js
++++ b/__tests__/application/response.test.js
+@@ -12,6 +12,7 @@ describe('app.response', () => {
+   const app5 = new Koa()
+   const app6 = new Koa()
+   const app7 = new Koa()
++  const app8 = new Koa()
+ 
+   it('should merge properties', () => {
+     app1.use((ctx, next) => {
+@@ -96,4 +97,15 @@ describe('app.response', () => {
+       .expect('Transfer-Encoding', 'chunked')
+       .expect(200)
+   })
++
++  it('should not assign multiple content-type for response header', () => {
++    app8.use((ctx, next) => {
++      assert.throws(() => {
++        ctx.set('Content-Type', ['image/jpg', 'application/json'])
++      }, Error)
++      ctx.body = {}
++    })
++
++    return request(app8.callback())
++      .get('/')
++      .expect(200)
++  })
+ })
