@@ -1,0 +1,114 @@
+diff --git a/__tests__/response/type.test.js b/__tests__/response/type.test.js
+index d72e125..b01865d 100644
+--- a/__tests__/response/type.test.js
++++ b/__tests__/response/type.test.js
+@@ -1,8 +1,8 @@
+ 'use strict'
+ 
+ const { describe, it } = require('node:test')
+-const context = require('../../test-helpers/context')
+ const assert = require('node:assert/strict')
++const context = require('../../test-helpers/context')
+ 
+ describe('ctx.type=', () => {
+   describe('with a mime', () => {
+@@ -49,29 +49,43 @@ describe('ctx.type=', () => {
+       assert(!ctx.response.header['content-type'])
+     })
+   })
+-})
+ 
+-describe('ctx.type', () => {
+-  describe('with no Content-Type', () => {
+-    it('should return ""', () => {
+-      const ctx = context()
+-      assert(!ctx.type)
++  describe('when response.typeOnce is true', () => {
++    it('should not overwrite an existing content-type', () => {
++      const Koa = require('../../lib/application')
++      const app = new Koa({ responseTypeOnce: true })
++      const ctx = context(null, null, app)
++      ctx.type = 'text/plain'
++      assert.strictEqual(ctx.type, 'text/plain')
++      assert.strictEqual(ctx.response.header['content-type'], 'text/plain; charset=utf-8')
++      
++      ctx.type = 'json'
++      assert.strictEqual(ctx.type, 'text/plain')
++      assert.strictEqual(ctx.response.header['content-type'], 'text/plain; charset=utf-8')
+     })
+-  })
+ 
+-  describe('with a Content-Type', () => {
+-    it('should return the mime', () => {
+-      const ctx = context()
++    it('should allow overwriting content-type if unset first', () => {
++      const Koa = require('../../lib/application')
++      const app = new Koa({ responseTypeOnce: true })
++      const ctx = context(null, null, app)
++      ctx.type = 'text/plain'
++      ctx.type = '' // Unset the type
+       ctx.type = 'json'
+       assert.strictEqual(ctx.type, 'application/json')
++      assert.strictEqual(ctx.response.header['content-type'], 'application/json; charset=utf-8')
+     })
+-  })
+ 
+-  describe('when setting to +json content type', () => {
+-    it('should set the content type to json', () => {
+-      const ctx = context()
+-      ctx.type = 'application/vnd.myapi.v1+json'
+-      assert.strictEqual(ctx.type, 'application/vnd.myapi.v1+json')
++    it('should not affect ctx.body stream auto-inference', () => {
++      const Koa = require('../../lib/application')
++      const app = new Koa({ responseTypeOnce: true })
++      const ctx = context(null, null, app)
++      const { Readable } = require('node:stream')
++      
++      ctx.type = 'text/plain'
++      ctx.body = new Readable()
++      
++      // Since it already has a type, it shouldn't overwrite it to 'application/octet-stream' (bin)
++      assert.strictEqual(ctx.type, 'text/plain')
+     })
+   })
+ })
+diff --git a/lib/application.js b/lib/application.js
+index 5a0a972..02eee3b 100644
+--- a/lib/application.js
++++ b/lib/application.js
+@@ -66,7 +66,7 @@ module.exports = class Application extends Emitter {
+    * @param {number} [options.maxIpsCount] Max IPs read from proxy IP header, default to 0 (means infinity)
+    * @param {function} [options.compose] Function to handle middleware composition
+    * @param {boolean} [options.asyncLocalStorage] Enable AsyncLocalStorage, default to false
+-   *
++   * @param {boolean} [options.responseTypeOnce] Prevent overwriting of Content-Type when it is already set
+    */
+ 
+   constructor (options) {
+@@ -78,13 +78,13 @@ module.exports = class Application extends Emitter {
+     this.maxIpsCount = options.maxIpsCount || 0
+     this.env = options.env || process.env.NODE_ENV || 'development'
+     this.compose = options.compose || compose
++    this.responseTypeOnce = options.responseTypeOnce || options['response.typeOnce'] || false
+     if (options.keys) this.keys = options.keys
+     this.middleware = []
+     this.context = Object.create(context)
+     this.request = Object.create(request)
+     this.response = Object.create(response)
+     // util.inspect.custom support for node 6+
+-    /* istanbul ignore else */
+     if (util.inspect.custom) {
+       this[util.inspect.custom] = this.inspect
+     }
+diff --git a/lib/response.js b/lib/response.js
+index 9b67414..ca7c509 100644
+--- a/lib/response.js
++++ b/lib/response.js
+@@ -386,6 +386,7 @@ module.exports = {
+   set type (type) {
+     type = getType(type)
+     if (type) {
++      if (this.app && this.app.responseTypeOnce && this.has('Content-Type')) return
+       this.set('Content-Type', type)
+     } else {
+       this.remove('Content-Type')

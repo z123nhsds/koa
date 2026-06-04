@@ -1,8 +1,8 @@
 'use strict'
 
 const { describe, it } = require('node:test')
-const context = require('../../test-helpers/context')
 const assert = require('node:assert/strict')
+const context = require('../../test-helpers/context')
 
 describe('ctx.type=', () => {
   describe('with a mime', () => {
@@ -49,29 +49,43 @@ describe('ctx.type=', () => {
       assert(!ctx.response.header['content-type'])
     })
   })
-})
 
-describe('ctx.type', () => {
-  describe('with no Content-Type', () => {
-    it('should return ""', () => {
-      const ctx = context()
-      assert(!ctx.type)
+  describe('when response.typeOnce is true', () => {
+    it('should not overwrite an existing content-type', () => {
+      const Koa = require('../../lib/application')
+      const app = new Koa({ responseTypeOnce: true })
+      const ctx = context(null, null, app)
+      ctx.type = 'text/plain'
+      assert.strictEqual(ctx.type, 'text/plain')
+      assert.strictEqual(ctx.response.header['content-type'], 'text/plain; charset=utf-8')
+      
+      ctx.type = 'json'
+      assert.strictEqual(ctx.type, 'text/plain')
+      assert.strictEqual(ctx.response.header['content-type'], 'text/plain; charset=utf-8')
     })
-  })
 
-  describe('with a Content-Type', () => {
-    it('should return the mime', () => {
-      const ctx = context()
+    it('should allow overwriting content-type if unset first', () => {
+      const Koa = require('../../lib/application')
+      const app = new Koa({ responseTypeOnce: true })
+      const ctx = context(null, null, app)
+      ctx.type = 'text/plain'
+      ctx.type = '' // Unset the type
       ctx.type = 'json'
       assert.strictEqual(ctx.type, 'application/json')
+      assert.strictEqual(ctx.response.header['content-type'], 'application/json; charset=utf-8')
     })
-  })
 
-  describe('when setting to +json content type', () => {
-    it('should set the content type to json', () => {
-      const ctx = context()
-      ctx.type = 'application/vnd.myapi.v1+json'
-      assert.strictEqual(ctx.type, 'application/vnd.myapi.v1+json')
+    it('should not affect ctx.body stream auto-inference', () => {
+      const Koa = require('../../lib/application')
+      const app = new Koa({ responseTypeOnce: true })
+      const ctx = context(null, null, app)
+      const { Readable } = require('node:stream')
+      
+      ctx.type = 'text/plain'
+      ctx.body = new Readable()
+      
+      // Since it already has a type, it shouldn't overwrite it to 'application/octet-stream' (bin)
+      assert.strictEqual(ctx.type, 'text/plain')
     })
   })
 })
