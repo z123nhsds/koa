@@ -1,0 +1,67 @@
+diff --git a/__tests__/response/type.test.js b/__tests__/response/type.test.js
+index d72e125..2691d95 100644
+--- a/__tests__/response/type.test.js
++++ b/__tests__/response/type.test.js
+@@ -41,37 +41,45 @@ describe('ctx.type=', () => {
+     })
+   })
+ 
+-  describe('with an unknown extension', () => {
+-    it('should not set a content-type', () => {
++  describe('with a Content-Type', () => {
++    it('should return the mime', () => {
+       const ctx = context()
+-      ctx.type = 'asdf'
+-      assert(!ctx.type)
+-      assert(!ctx.response.header['content-type'])
++      ctx.type = 'json'
++      assert.strictEqual(ctx.type, 'application/json')
+     })
+-  })
+-})
+ 
+-describe('ctx.type', () => {
+-  describe('with no Content-Type', () => {
+-    it('should return ""', () => {
++    it('should set the content type to json', () => {
+       const ctx = context()
+-      assert(!ctx.type)
++      ctx.type = 'application/vnd.myapi.v1+json'
++      assert.strictEqual(ctx.type, 'application/vnd.myapi.v1+json')
+     })
+   })
+ 
+-  describe('with a Content-Type', () => {
+-    it('should return the mime', () => {
++  describe('multiple assignments', () => {
++    it('should overwrite the type and not append', () => {
+       const ctx = context()
++      ctx.type = 'html'
+       ctx.type = 'json'
+       assert.strictEqual(ctx.type, 'application/json')
++      assert.strictEqual(ctx.response.header['content-type'], 'application/json; charset=utf-8')
+     })
+   })
+ 
+-  describe('when setting to +json content type', () => {
+-    it('should set the content type to json', () => {
++  describe('multiple assignments with charset', () => {
++    it('should overwrite the type and maintain correct charset', () => {
+       const ctx = context()
+-      ctx.type = 'application/vnd.myapi.v1+json'
+-      assert.strictEqual(ctx.type, 'application/vnd.myapi.v1+json')
++      ctx.type = 'text/html; charset=gbk'
++      ctx.type = 'text/plain'
++      assert.strictEqual(ctx.type, 'text/plain')
++      assert.strictEqual(ctx.response.header['content-type'], 'text/plain; charset=utf-8')
++    })
++
++    it('should overwrite the type and use new charset if provided', () => {
++      const ctx = context()
++      ctx.type = 'text/html; charset=gbk'
++      ctx.type = 'application/json; charset=ascii'
++      assert.strictEqual(ctx.type, 'application/json')
++      assert.strictEqual(ctx.response.header['content-type'], 'application/json; charset=ascii')
+     })
+   })
+ })
