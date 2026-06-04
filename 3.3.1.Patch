@@ -1,0 +1,15 @@
+diff --git a/lib/application.js b/lib/application.js
+index 5a0a972..1cea02a 100644
+--- a/lib/application.js
++++ b/lib/application.js
+@@ -174,8 +174,8 @@ module.exports = class Application extends Emitter {
+       if (!this.ctxStorage) {
+         return this.handleRequest(ctx, fn)
+       }
+-      return this.ctxStorage.run(ctx, async () => {
+-        return await this.handleRequest(ctx, fn)
++      return this.ctxStorage.run(ctx, () => {
++        return this.handleRequest(ctx, fn)
+       })
+     }
+ 
