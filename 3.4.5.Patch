@@ -1,0 +1,109 @@
+diff --git a/__tests__/response/type.test.js b/__tests__/response/type.test.js
+index d72e125..95a2d77 100644
+--- a/__tests__/response/type.test.js
++++ b/__tests__/response/type.test.js
+@@ -2,10 +2,6 @@
+ 
+ const { describe, it } = require('node:test')
+ const context = require('../../test-helpers/context')
+-const assert = require('node:assert/strict')
+-
+-describe('ctx.type=', () => {
+-  describe('with a mime', () => {
+     it('should set the Content-Type', () => {
+       const ctx = context()
+       ctx.type = 'text/plain'
+diff --git a/lib/application.js b/lib/application.js
+index 5a0a972..c0a003a 100644
+--- a/lib/application.js
++++ b/lib/application.js
+@@ -66,8 +66,6 @@ module.exports = class Application extends Emitter {
+    * @param {number} [options.maxIpsCount] Max IPs read from proxy IP header, default to 0 (means infinity)
+    * @param {function} [options.compose] Function to handle middleware composition
+    * @param {boolean} [options.asyncLocalStorage] Enable AsyncLocalStorage, default to false
+-   *
+-   */
+ 
+   constructor (options) {
+     super()
+@@ -83,9 +81,6 @@ module.exports = class Application extends Emitter {
+     this.context = Object.create(context)
+     this.request = Object.create(request)
+     this.response = Object.create(response)
+-    // util.inspect.custom support for node 6+
+-    /* istanbul ignore else */
+-    if (util.inspect.custom) {
+       this[util.inspect.custom] = this.inspect
+     }
+     if (options.asyncLocalStorage) {
+diff --git a/lib/response.js b/lib/response.js
+index 9b67414..d12d2d1 100644
+--- a/lib/response.js
++++ b/lib/response.js
+@@ -27,17 +27,6 @@ const only = require('./only.js')
+ 
+ module.exports = {
+ 
+-  /**
+-   * Return the request socket.
+-   *
+-   * @return {Connection}
+-   * @api public
+-   */
+-
+-  get socket () {
+-    return this.res.socket
+-  },
+-
+   /**
+    * Return response header.
+    *
+@@ -384,6 +373,7 @@ module.exports = {
+    */
+ 
+   set type (type) {
++    if (this._typeOnce && this.has('Content-Type')) return
+     type = getType(type)
+     if (type) {
+       this.set('Content-Type', type)
+@@ -392,13 +382,37 @@ module.exports = {
+     }
+   },
+ 
++  /**
++   * Enable type-once mode: when enabled, setting `this.type` will only
++   * take effect if the Content-Type header has not been set yet.
++   * This protects earlier middleware's content-type from being overwritten.
++   *
++   * Defaults to false. Can be set at app level via `app.response.typeOnce = true`.
++   *
++   * @param {Boolean} enabled
++   * @api public
++   */
++
++  set typeOnce (enabled) {
++    this._typeOnce = enabled
++  },
++
++  /**
++   * Get the current type-once mode status.
++   *
++   * @return {Boolean}
++   * @api public
++   */
++
++  get typeOnce () {
++    return !!this._typeOnce
++  },
++
+   /**
+    * Set the Last-Modified date using a string or a Date.
+    *
+    *     this.response.lastModified = new Date();
+-   *     this.response.lastModified = '2013-09-13';
+-   *
+-   * @param {String|Date} val
++    }
+    * @api public
+    */
+ 

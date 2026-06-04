@@ -2,10 +2,6 @@
 
 const { describe, it } = require('node:test')
 const context = require('../../test-helpers/context')
-const assert = require('node:assert/strict')
-
-describe('ctx.type=', () => {
-  describe('with a mime', () => {
     it('should set the Content-Type', () => {
       const ctx = context()
       ctx.type = 'text/plain'
