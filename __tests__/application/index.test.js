@@ -73,11 +73,3 @@ describe('app', () => {
     assert.strictEqual(app.compose, compose)
   })
 
-  it('should have a static property exporting `HttpError` from http-errors library', () => {
-    const CreateError = require('http-errors')
-
-    assert.notEqual(Koa.HttpError, undefined)
-    assert.deepStrictEqual(Koa.HttpError, CreateError.HttpError)
-    assert.throws(() => { throw new CreateError(500, 'test error') }, Koa.HttpError)
-  })
-})

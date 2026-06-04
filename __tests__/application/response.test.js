@@ -3,7 +3,6 @@
 const { describe, it } = require('node:test')
 const request = require('supertest')
 const assert = require('node:assert/strict')
-const Koa = require('../..')
 
 describe('app.response', () => {
   const app1 = new Koa()
@@ -110,5 +109,3 @@ describe('app.response', () => {
     return request(app8.callback())
       .get('/')
       .expect(200)
-  })
-})
