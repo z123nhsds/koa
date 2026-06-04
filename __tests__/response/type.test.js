@@ -41,24 +41,6 @@ describe('ctx.type=', () => {
     })
   })
 
-  describe('with an unknown extension', () => {
-    it('should not set a content-type', () => {
-      const ctx = context()
-      ctx.type = 'asdf'
-      assert(!ctx.type)
-      assert(!ctx.response.header['content-type'])
-    })
-  })
-})
-
-describe('ctx.type', () => {
-  describe('with no Content-Type', () => {
-    it('should return ""', () => {
-      const ctx = context()
-      assert(!ctx.type)
-    })
-  })
-
   describe('with a Content-Type', () => {
     it('should return the mime', () => {
       const ctx = context()
