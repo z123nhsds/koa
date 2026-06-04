@@ -6,21 +6,21 @@ const assert = require('node:assert/strict')
 const Koa = require('../..')
 
 describe('app.compose', () => {
-  it('should work with default compose ', async () => {
+  it('should compose middleware', async () => {
     const app = new Koa()
     const calls = []
 
     app.use((ctx, next) => {
       calls.push(1)
       return next().then(() => {
-        calls.push(4)
+        calls.push(2)
       })
     })
 
     app.use((ctx, next) => {
-      calls.push(2)
+      calls.push(3)
       return next().then(() => {
-        calls.push(3)
+        calls.push(4)
       })
     })
 
@@ -28,7 +28,7 @@ describe('app.compose', () => {
       .get('/')
       .expect(404)
 
-    assert.deepStrictEqual(calls, [1, 2, 3, 4])
+    assert.deepStrictEqual(calls, [1, 3, 4, 2])
   })
 
   it('should work with configurable compose', async () => {
@@ -36,26 +36,28 @@ describe('app.compose', () => {
     let count = 0
     const app = new Koa({
       compose (fns) {
-        return async (ctx) => {
-          const dispatch = async () => {
+        return (ctx) => {
+          const dispatch = () => {
             count++
             const fn = fns.shift()
-            fn && fn(ctx, dispatch)
+            return fn && fn(ctx, dispatch)
           }
-          dispatch()
+          return dispatch()
         }
       }
     })
 
     app.use((ctx, next) => {
       calls.push(1)
-      next()
-      calls.push(4)
+      return next().then(() => {
+        calls.push(4)
+      })
     })
     app.use((ctx, next) => {
       calls.push(2)
-      next()
-      calls.push(3)
+      return next().then(() => {
+        calls.push(3)
+      })
     })
 
     await request(app.callback())

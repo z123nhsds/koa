@@ -28,18 +28,34 @@ describe('ctx.set(name, val)', () => {
     ctx.set('x-foo', ['foo', 'bar', 123])
     assert.deepStrictEqual(ctx.response.header['x-foo'], ['foo', 'bar', 123])
   })
-})
 
-describe('ctx.set(object)', () => {
-  it('should set multiple fields', () => {
-    const ctx = context()
-
-    ctx.set({
-      foo: '1',
-      bar: '2'
+  describe('when field is Content-Type', () => {
+    it('should set a single Content-Type value', () => {
+      const ctx = context()
+      ctx.set('Content-Type', 'text/plain; charset=utf-8')
+      assert.strictEqual(ctx.response.get('Content-Type'), 'text/plain; charset=utf-8')
     })
 
-    assert.strictEqual(ctx.response.header.foo, '1')
-    assert.strictEqual(ctx.response.header.bar, '2')
+    it('should reject array value for Content-Type', () => {
+      const ctx = context()
+      assert.throws(
+        () => ctx.set('Content-Type', ['text/plain', 'text/html']),
+        /Assign multiple Content-Type for response header is not allowed/
+      )
+    })
+
+    it('should reject array value for content-type (case-insensitive)', () => {
+      const ctx = context()
+      assert.throws(
+        () => ctx.set('content-type', ['application/json']),
+        /Assign multiple Content-Type for response header is not allowed/
+      )
+    })
+
+    it('should allow single string value for content-type (case-insensitive)', () => {
+      const ctx = context()
+      ctx.set('content-type', 'application/json')
+      assert.strictEqual(ctx.response.get('content-type'), 'application/json')
+    })
   })
 })

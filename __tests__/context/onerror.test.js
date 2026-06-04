@@ -80,12 +80,11 @@ describe('ctx.onerror(err)', () => {
       res.end()
     })
 
-    app.use(async ctx => {
+    app.use((ctx) => {
       ctx.status = 200
       ctx.set('X-Foo', 'Bar')
       ctx.flushHeaders()
-      await Promise.reject(new Error('mock error'))
-      ctx.body = 'response'
+      return Promise.reject(new Error('mock error'))
     })
 
     await request(app.callback())
@@ -245,7 +244,7 @@ describe('ctx.onerror(err)', () => {
         assert(assertionRan, 'assertion was not executed')
       })
 
-      app.use(async ctx => {
+      app.use((ctx) => {
         throw { key: 'value' } // eslint-disable-line no-throw-literal
       })
 

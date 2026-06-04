@@ -1,0 +1,201 @@
+diff --git a/__tests__/application/compose.test.js b/__tests__/application/compose.test.js
+index e12e0a3..2eb9401 100644
+--- a/__tests__/application/compose.test.js
++++ b/__tests__/application/compose.test.js
+@@ -6,21 +6,21 @@ const assert = require('node:assert/strict')
+ const Koa = require('../..')
+ 
+ describe('app.compose', () => {
+-  it('should work with default compose ', async () => {
++  it('should compose middleware', async () => {
+     const app = new Koa()
+     const calls = []
+ 
+     app.use((ctx, next) => {
+       calls.push(1)
+       return next().then(() => {
+-        calls.push(4)
++        calls.push(2)
+       })
+     })
+ 
+     app.use((ctx, next) => {
+-      calls.push(2)
++      calls.push(3)
+       return next().then(() => {
+-        calls.push(3)
++        calls.push(4)
+       })
+     })
+ 
+@@ -28,7 +28,7 @@ describe('app.compose', () => {
+       .get('/')
+       .expect(404)
+ 
+-    assert.deepStrictEqual(calls, [1, 2, 3, 4])
++    assert.deepStrictEqual(calls, [1, 3, 4, 2])
+   })
+ 
+   it('should work with configurable compose', async () => {
+@@ -36,26 +36,28 @@ describe('app.compose', () => {
+     let count = 0
+     const app = new Koa({
+       compose (fns) {
+-        return async (ctx) => {
+-          const dispatch = async () => {
++        return (ctx) => {
++          const dispatch = () => {
+             count++
+             const fn = fns.shift()
+-            fn && fn(ctx, dispatch)
++            return fn && fn(ctx, dispatch)
+           }
+-          dispatch()
++          return dispatch()
+         }
+       }
+     })
+ 
+     app.use((ctx, next) => {
+       calls.push(1)
+-      next()
+-      calls.push(4)
++      return next().then(() => {
++        calls.push(4)
++      })
+     })
+     app.use((ctx, next) => {
+       calls.push(2)
+-      next()
+-      calls.push(3)
++      return next().then(() => {
++        calls.push(3)
++      })
+     })
+ 
+     await request(app.callback())
+diff --git a/__tests__/context/onerror.test.js b/__tests__/context/onerror.test.js
+index 4f91744..c37a619 100644
+--- a/__tests__/context/onerror.test.js
++++ b/__tests__/context/onerror.test.js
+@@ -80,12 +80,11 @@ describe('ctx.onerror(err)', () => {
+       res.end()
+     })
+ 
+-    app.use(async ctx => {
++    app.use((ctx) => {
+       ctx.status = 200
+       ctx.set('X-Foo', 'Bar')
+       ctx.flushHeaders()
+-      await Promise.reject(new Error('mock error'))
+-      ctx.body = 'response'
++      return Promise.reject(new Error('mock error'))
+     })
+ 
+     await request(app.callback())
+@@ -245,7 +244,7 @@ describe('ctx.onerror(err)', () => {
+         assert(assertionRan, 'assertion was not executed')
+       })
+ 
+-      app.use(async ctx => {
++      app.use((ctx) => {
+         throw { key: 'value' } // eslint-disable-line no-throw-literal
+       })
+ 
+diff --git a/__tests__/response/set.test.js b/__tests__/response/set.test.js
+index c8a19c1..a209a5b 100644
+--- a/__tests__/response/set.test.js
++++ b/__tests__/response/set.test.js
+@@ -28,18 +28,34 @@ describe('ctx.set(name, val)', () => {
+     ctx.set('x-foo', ['foo', 'bar', 123])
+     assert.deepStrictEqual(ctx.response.header['x-foo'], ['foo', 'bar', 123])
+   })
+-})
+ 
+-describe('ctx.set(object)', () => {
+-  it('should set multiple fields', () => {
+-    const ctx = context()
++  describe('when field is Content-Type', () => {
++    it('should set a single Content-Type value', () => {
++      const ctx = context()
++      ctx.set('Content-Type', 'text/plain; charset=utf-8')
++      assert.strictEqual(ctx.response.get('Content-Type'), 'text/plain; charset=utf-8')
++    })
+ 
+-    ctx.set({
+-      foo: '1',
+-      bar: '2'
++    it('should reject array value for Content-Type', () => {
++      const ctx = context()
++      assert.throws(
++        () => ctx.set('Content-Type', ['text/plain', 'text/html']),
++        /Assign multiple Content-Type for response header is not allowed/
++      )
+     })
+ 
+-    assert.strictEqual(ctx.response.header.foo, '1')
+-    assert.strictEqual(ctx.response.header.bar, '2')
++    it('should reject array value for content-type (case-insensitive)', () => {
++      const ctx = context()
++      assert.throws(
++        () => ctx.set('content-type', ['application/json']),
++        /Assign multiple Content-Type for response header is not allowed/
++      )
++    })
++
++    it('should allow single string value for content-type (case-insensitive)', () => {
++      const ctx = context()
++      ctx.set('content-type', 'application/json')
++      assert.strictEqual(ctx.response.get('content-type'), 'application/json')
++    })
+   })
+ })
+diff --git a/lib/application.js b/lib/application.js
+index 5a0a972..c4d1bcd 100644
+--- a/lib/application.js
++++ b/lib/application.js
+@@ -174,8 +174,8 @@ module.exports = class Application extends Emitter {
+       if (!this.ctxStorage) {
+         return this.handleRequest(ctx, fn)
+       }
+-      return this.ctxStorage.run(ctx, async () => {
+-        return await this.handleRequest(ctx, fn)
++      return this.ctxStorage.run(ctx, () => {
++        return this.handleRequest(ctx, fn)
+       })
+     }
+ 
+@@ -199,9 +199,7 @@ module.exports = class Application extends Emitter {
+     const res = ctx.res
+     res.statusCode = 404
+     const onerror = (err) => ctx.onerror(err)
+-    const handleResponse = () => respond(ctx)
+-    onFinished(res, onerror)
+-    return fnMiddleware(ctx).then(handleResponse).catch(onerror)
++    return fnMiddleware(ctx).then(respond).catch(onerror)
+   }
+ 
+   /**
+@@ -337,7 +335,6 @@ function respond (ctx) {
+ }
+ 
+ /**
+- * Make HttpError available to consumers of the library so that consumers don't
+  * have a direct dependency upon `http-errors`
+  */
+ 
+diff --git a/lib/context.js b/lib/context.js
+index 68ffe34..e3f55cc 100644
+--- a/lib/context.js
++++ b/lib/context.js
+@@ -148,9 +148,8 @@ const proto = module.exports = {
+     // force text/plain
+     this.type = 'text'
+ 
+-    let statusCode = err.status || err.statusCode
+-
+     // default to 500
++    let statusCode = err.status || err.statusCode
+     if (typeof statusCode !== 'number' || !statuses.message[statusCode]) statusCode = 500
+ 
+     // respond
