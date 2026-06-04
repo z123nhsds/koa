@@ -2,6 +2,7 @@
 
 const { describe, it } = require('node:test')
 const context = require('../../test-helpers/context')
+const Koa = require('../../lib/application')
 const assert = require('node:assert/strict')
 
 describe('ctx.type=', () => {
@@ -47,6 +48,52 @@ describe('ctx.type=', () => {
       ctx.type = 'asdf'
       assert(!ctx.type)
       assert(!ctx.response.header['content-type'])
+    })
+  })
+
+  describe('with response.typeOnce enabled', () => {
+    it('should not overwrite existing Content-Type', () => {
+      const app = new Koa({ response: { typeOnce: true } })
+      const ctx = context(null, null, app)
+      ctx.type = 'application/json'
+      ctx.type = 'text/plain' // 这个应该不会覆盖
+      assert.strictEqual(ctx.type, 'application/json')
+      assert.strictEqual(ctx.response.header['content-type'], 'application/json; charset=utf-8')
+    })
+
+    it('should set Content-Type when it is not set initially', () => {
+      const app = new Koa({ response: { typeOnce: true } })
+      const ctx = context(null, null, app)
+      ctx.type = 'text/plain'
+      assert.strictEqual(ctx.type, 'text/plain')
+      assert.strictEqual(ctx.response.header['content-type'], 'text/plain; charset=utf-8')
+    })
+
+    it('should allow removing Content-Type even when typeOnce is enabled', () => {
+      const app = new Koa({ response: { typeOnce: true } })
+      const ctx = context(null, null, app)
+      ctx.type = 'application/json'
+      ctx.type = '' // 空字符串应该会移除 Content-Type
+      assert(!ctx.type)
+      assert(!ctx.response.header['content-type'])
+    })
+
+    it('should maintain default behavior when typeOnce is false', () => {
+      const app = new Koa({ response: { typeOnce: false } })
+      const ctx = context(null, null, app)
+      ctx.type = 'application/json'
+      ctx.type = 'text/plain'
+      assert.strictEqual(ctx.type, 'text/plain')
+      assert.strictEqual(ctx.response.header['content-type'], 'text/plain; charset=utf-8')
+    })
+
+    it('should maintain default behavior when typeOnce is not set', () => {
+      const app = new Koa()
+      const ctx = context(null, null, app)
+      ctx.type = 'application/json'
+      ctx.type = 'text/plain'
+      assert.strictEqual(ctx.type, 'text/plain')
+      assert.strictEqual(ctx.response.header['content-type'], 'text/plain; charset=utf-8')
     })
   })
 })

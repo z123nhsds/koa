@@ -1,0 +1,99 @@
+diff --git a/__tests__/response/type.test.js b/__tests__/response/type.test.js
+index d72e125..ee2c0b7 100644
+--- a/__tests__/response/type.test.js
++++ b/__tests__/response/type.test.js
+@@ -2,6 +2,7 @@
+ 
+ const { describe, it } = require('node:test')
+ const context = require('../../test-helpers/context')
++const Koa = require('../../lib/application')
+ const assert = require('node:assert/strict')
+ 
+ describe('ctx.type=', () => {
+@@ -49,6 +50,52 @@ describe('ctx.type=', () => {
+       assert(!ctx.response.header['content-type'])
+     })
+   })
++
++  describe('with response.typeOnce enabled', () => {
++    it('should not overwrite existing Content-Type', () => {
++      const app = new Koa({ response: { typeOnce: true } })
++      const ctx = context(null, null, app)
++      ctx.type = 'application/json'
++      ctx.type = 'text/plain' // 这个应该不会覆盖
++      assert.strictEqual(ctx.type, 'application/json')
++      assert.strictEqual(ctx.response.header['content-type'], 'application/json; charset=utf-8')
++    })
++
++    it('should set Content-Type when it is not set initially', () => {
++      const app = new Koa({ response: { typeOnce: true } })
++      const ctx = context(null, null, app)
++      ctx.type = 'text/plain'
++      assert.strictEqual(ctx.type, 'text/plain')
++      assert.strictEqual(ctx.response.header['content-type'], 'text/plain; charset=utf-8')
++    })
++
++    it('should allow removing Content-Type even when typeOnce is enabled', () => {
++      const app = new Koa({ response: { typeOnce: true } })
++      const ctx = context(null, null, app)
++      ctx.type = 'application/json'
++      ctx.type = '' // 空字符串应该会移除 Content-Type
++      assert(!ctx.type)
++      assert(!ctx.response.header['content-type'])
++    })
++
++    it('should maintain default behavior when typeOnce is false', () => {
++      const app = new Koa({ response: { typeOnce: false } })
++      const ctx = context(null, null, app)
++      ctx.type = 'application/json'
++      ctx.type = 'text/plain'
++      assert.strictEqual(ctx.type, 'text/plain')
++      assert.strictEqual(ctx.response.header['content-type'], 'text/plain; charset=utf-8')
++    })
++
++    it('should maintain default behavior when typeOnce is not set', () => {
++      const app = new Koa()
++      const ctx = context(null, null, app)
++      ctx.type = 'application/json'
++      ctx.type = 'text/plain'
++      assert.strictEqual(ctx.type, 'text/plain')
++      assert.strictEqual(ctx.response.header['content-type'], 'text/plain; charset=utf-8')
++    })
++  })
+ })
+ 
+ describe('ctx.type', () => {
+diff --git a/lib/application.js b/lib/application.js
+index 5a0a972..e6d4177 100644
+--- a/lib/application.js
++++ b/lib/application.js
+@@ -66,6 +66,7 @@ module.exports = class Application extends Emitter {
+    * @param {number} [options.maxIpsCount] Max IPs read from proxy IP header, default to 0 (means infinity)
+    * @param {function} [options.compose] Function to handle middleware composition
+    * @param {boolean} [options.asyncLocalStorage] Enable AsyncLocalStorage, default to false
++   * @param {boolean} [options.response.typeOnce] Set response type only once if not already set, default to false
+    *
+    */
+ 
+@@ -83,6 +84,7 @@ module.exports = class Application extends Emitter {
+     this.context = Object.create(context)
+     this.request = Object.create(request)
+     this.response = Object.create(response)
++    this.response.typeOnce = (options.response && options.response.typeOnce) || false
+     // util.inspect.custom support for node 6+
+     /* istanbul ignore else */
+     if (util.inspect.custom) {
+diff --git a/lib/response.js b/lib/response.js
+index 9b67414..a31c391 100644
+--- a/lib/response.js
++++ b/lib/response.js
+@@ -385,6 +385,9 @@ module.exports = {
+ 
+   set type (type) {
+     type = getType(type)
++    if (this.app.response.typeOnce && this.has('Content-Type')) {
++      return
++    }
+     if (type) {
+       this.set('Content-Type', type)
+     } else {
