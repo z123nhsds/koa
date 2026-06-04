@@ -41,6 +41,24 @@ describe('ctx.type=', () => {
     })
   })
 
+  describe('with multiple params including charset', () => {
+    it('should keep params without duplicating the charset', () => {
+      const ctx = context()
+      ctx.type = 'text/html; charset=utf-8; foo=bar'
+      assert.strictEqual(ctx.type, 'text/html')
+      assert.strictEqual(ctx.response.header['content-type'], 'text/html; charset=utf-8; foo=bar')
+    })
+  })
+
+  describe('with multiple params without charset', () => {
+    it('should add the default charset once', () => {
+      const ctx = context()
+      ctx.type = 'text/html; foo=bar'
+      assert.strictEqual(ctx.type, 'text/html')
+      assert.strictEqual(ctx.response.header['content-type'], 'text/html; charset=utf-8; foo=bar')
+    })
+  })
+
   describe('with an unknown extension', () => {
     it('should not set a content-type', () => {
       const ctx = context()
