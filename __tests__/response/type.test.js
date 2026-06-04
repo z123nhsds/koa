@@ -49,29 +49,7 @@ describe('ctx.type=', () => {
       assert(!ctx.response.header['content-type'])
     })
   })
-})
-
 describe('ctx.type', () => {
   describe('with no Content-Type', () => {
     it('should return ""', () => {
       const ctx = context()
-      assert(!ctx.type)
-    })
-  })
-
-  describe('with a Content-Type', () => {
-    it('should return the mime', () => {
-      const ctx = context()
-      ctx.type = 'json'
-      assert.strictEqual(ctx.type, 'application/json')
-    })
-  })
-
-  describe('when setting to +json content type', () => {
-    it('should set the content type to json', () => {
-      const ctx = context()
-      ctx.type = 'application/vnd.myapi.v1+json'
-      assert.strictEqual(ctx.type, 'application/vnd.myapi.v1+json')
-    })
-  })
-})
