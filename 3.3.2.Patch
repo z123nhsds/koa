@@ -1,0 +1,141 @@
+diff --git a/__tests__/application/compose.test.js b/__tests__/application/compose.test.js
+index e12e0a3..15eeec0 100644
+--- a/__tests__/application/compose.test.js
++++ b/__tests__/application/compose.test.js
+@@ -5,6 +5,20 @@ const request = require('supertest')
+ const assert = require('node:assert/strict')
+ const Koa = require('../..')
+ 
++function syncCompose (fns) {
++  return function (ctx) {
++    return dispatch(0)
++
++    function dispatch (index) {
++      const fn = fns[index]
++      if (!fn) return
++      return fn(ctx, function next () {
++        return dispatch(index + 1)
++      })
++    }
++  }
++}
++
+ describe('app.compose', () => {
+   it('should work with default compose ', async () => {
+     const app = new Koa()
+@@ -64,4 +78,28 @@ describe('app.compose', () => {
+     assert.deepStrictEqual(calls, [1, 2, 3, 4])
+     assert.equal(count, 3)
+   })
++
++  it('should catch ctx.throw with synchronous compose', () => {
++    const app = new Koa({ compose: syncCompose })
++
++    app.use(ctx => {
++      ctx.throw(418, 'boom')
++    })
++
++    return request(app.callback())
++      .get('/')
++      .expect(418, 'boom')
++  })
++
++  it('should catch ctx.assert with synchronous compose', () => {
++    const app = new Koa({ compose: syncCompose })
++
++    app.use(ctx => {
++      ctx.assert(false, 401, 'missing user')
++    })
++
++    return request(app.callback())
++      .get('/')
++      .expect(401, 'missing user')
++  })
+ })
+diff --git a/__tests__/context/onerror.test.js b/__tests__/context/onerror.test.js
+index 4f91744..ff87c3e 100644
+--- a/__tests__/context/onerror.test.js
++++ b/__tests__/context/onerror.test.js
+@@ -71,6 +71,28 @@ describe('ctx.onerror(err)', () => {
+     assert.strictEqual(Object.prototype.hasOwnProperty.call(res.headers, 'x-csrf-token'), false)
+   })
+ 
++  it('should keep content-type as a single value when error headers include it', () => {
++    const app = new Koa()
++
++    app.use((ctx, next) => {
++      throw Object.assign(new Error('boom'), {
++        status: 418,
++        expose: true,
++        headers: {
++          'Content-Type': ['text/html', 'application/json'],
++          'X-New-Header': 'Value'
++        }
++      })
++    })
++
++    return request(app.callback())
++      .get('/')
++      .expect(418)
++      .expect('Content-Type', 'text/plain; charset=utf-8')
++      .expect('X-New-Header', 'Value')
++      .expect('boom')
++  })
++
+   it('should ignore error after headerSent', async () => {
+     const app = new Koa()
+ 
+diff --git a/lib/application.js b/lib/application.js
+index 5a0a972..c9244e3 100644
+--- a/lib/application.js
++++ b/lib/application.js
+@@ -174,9 +174,7 @@ module.exports = class Application extends Emitter {
+       if (!this.ctxStorage) {
+         return this.handleRequest(ctx, fn)
+       }
+-      return this.ctxStorage.run(ctx, async () => {
+-        return await this.handleRequest(ctx, fn)
+-      })
++      return this.ctxStorage.run(ctx, () => this.handleRequest(ctx, fn))
+     }
+ 
+     return handleRequest
+@@ -201,7 +199,10 @@ module.exports = class Application extends Emitter {
+     const onerror = (err) => ctx.onerror(err)
+     const handleResponse = () => respond(ctx)
+     onFinished(res, onerror)
+-    return fnMiddleware(ctx).then(handleResponse).catch(onerror)
++    return Promise.resolve()
++      .then(() => fnMiddleware(ctx))
++      .then(handleResponse)
++      .catch(onerror)
+   }
+ 
+   /**
+@@ -338,7 +339,6 @@ function respond (ctx) {
+ 
+ /**
+  * Make HttpError available to consumers of the library so that consumers don't
+- * have a direct dependency upon `http-errors`
++ * have to directly depend on the 'http-errors' package themselves.
+  */
+-
+ module.exports.HttpError = HttpError
+diff --git a/lib/context.js b/lib/context.js
+index 68ffe34..bc8b53c 100644
+--- a/lib/context.js
++++ b/lib/context.js
+@@ -143,7 +143,12 @@ const proto = module.exports = {
+     }
+ 
+     // then set those specified
+-    this.set(err.headers)
++    if (err.headers) {
++      Object.keys(err.headers).forEach(header => {
++        if (header.toLowerCase() === 'content-type') return
++        this.set(header, err.headers[header])
++      })
++    }
+ 
+     // force text/plain
+     this.type = 'text'

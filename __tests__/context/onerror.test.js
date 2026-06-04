@@ -71,6 +71,28 @@ describe('ctx.onerror(err)', () => {
     assert.strictEqual(Object.prototype.hasOwnProperty.call(res.headers, 'x-csrf-token'), false)
   })
 
+  it('should keep content-type as a single value when error headers include it', () => {
+    const app = new Koa()
+
+    app.use((ctx, next) => {
+      throw Object.assign(new Error('boom'), {
+        status: 418,
+        expose: true,
+        headers: {
+          'Content-Type': ['text/html', 'application/json'],
+          'X-New-Header': 'Value'
+        }
+      })
+    })
+
+    return request(app.callback())
+      .get('/')
+      .expect(418)
+      .expect('Content-Type', 'text/plain; charset=utf-8')
+      .expect('X-New-Header', 'Value')
+      .expect('boom')
+  })
+
   it('should ignore error after headerSent', async () => {
     const app = new Koa()
 

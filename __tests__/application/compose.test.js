@@ -5,6 +5,20 @@ const request = require('supertest')
 const assert = require('node:assert/strict')
 const Koa = require('../..')
 
+function syncCompose (fns) {
+  return function (ctx) {
+    return dispatch(0)
+
+    function dispatch (index) {
+      const fn = fns[index]
+      if (!fn) return
+      return fn(ctx, function next () {
+        return dispatch(index + 1)
+      })
+    }
+  }
+}
+
 describe('app.compose', () => {
   it('should work with default compose ', async () => {
     const app = new Koa()
@@ -63,5 +77,29 @@ describe('app.compose', () => {
 
     assert.deepStrictEqual(calls, [1, 2, 3, 4])
     assert.equal(count, 3)
+  })
+
+  it('should catch ctx.throw with synchronous compose', () => {
+    const app = new Koa({ compose: syncCompose })
+
+    app.use(ctx => {
+      ctx.throw(418, 'boom')
+    })
+
+    return request(app.callback())
+      .get('/')
+      .expect(418, 'boom')
+  })
+
+  it('should catch ctx.assert with synchronous compose', () => {
+    const app = new Koa({ compose: syncCompose })
+
+    app.use(ctx => {
+      ctx.assert(false, 401, 'missing user')
+    })
+
+    return request(app.callback())
+      .get('/')
+      .expect(401, 'missing user')
   })
 })
