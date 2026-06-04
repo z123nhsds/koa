@@ -1,0 +1,76 @@
+diff --git a/__tests__/response/type.test.js b/__tests__/response/type.test.js
+index d72e125..4ec2a15 100644
+--- a/__tests__/response/type.test.js
++++ b/__tests__/response/type.test.js
+@@ -41,6 +41,15 @@ describe('ctx.type=', () => {
+     })
+   })
+ 
++  describe('with multiple parameters', () => {
++    it('should handle multiple parameters correctly', () => {
++      const ctx = context()
++      ctx.type = 'text/html; charset=utf-8; foo=bar'
++      assert.strictEqual(ctx.type, 'text/html')
++      assert.strictEqual(ctx.response.header['content-type'], 'text/html; charset=utf-8; foo=bar')
++    })
++  })
++
+   describe('with an unknown extension', () => {
+     it('should not set a content-type', () => {
+       const ctx = context()
+diff --git a/lib/response.js b/lib/response.js
+index 9b67414..be75cfb 100644
+--- a/lib/response.js
++++ b/lib/response.js
+@@ -9,6 +9,7 @@ const extname = require('node:path').extname
+ const util = require('node:util')
+ 
+ const contentDisposition = require('content-disposition')
++const contentType = require('content-type')
+ const onFinish = require('on-finished')
+ const escape = require('escape-html')
+ const typeis = require('type-is').is
+@@ -384,9 +385,41 @@ module.exports = {
+    */
+ 
+   set type (type) {
+-    type = getType(type)
+     if (type) {
+-      this.set('Content-Type', type)
++      let ct
++      // 检查传入的 type 是否已经包含参数
++      const hasParams = type.includes(';')
++      
++      if (hasParams) {
++        // 如果包含参数，使用 content-type 包解析和标准化
++        try {
++          const parsed = contentType.parse(type)
++          // 尝试获取不带参数的 mime 类型，然后添加默认 charset（如果需要）
++          const baseType = getType(parsed.type)
++          if (baseType) {
++            const baseParsed = contentType.parse(baseType)
++            // 合并参数，新参数覆盖默认参数
++            ct = contentType.format({
++              type: baseParsed.type,
++              parameters: { ...baseParsed.parameters, ...parsed.parameters }
++            })
++          } else {
++            ct = contentType.format(parsed)
++          }
++        } catch (err) {
++          // 解析失败，直接使用原始值
++          ct = type
++        }
++      } else {
++        // 不包含参数，使用原有的 getType 逻辑
++        ct = getType(type)
++      }
++      
++      if (ct) {
++        this.set('Content-Type', ct)
++      } else {
++        this.remove('Content-Type')
++      }
+     } else {
+       this.remove('Content-Type')
+     }
