@@ -3,6 +3,7 @@
 const { describe, it } = require('node:test')
 const request = require('supertest')
 const assert = require('node:assert/strict')
+const fs = require('fs')
 const Koa = require('../..')
 
 describe('app.response', () => {
@@ -109,6 +110,44 @@ describe('app.response', () => {
 
     return request(app8.callback())
       .get('/')
+      .expect(200)
+  })
+
+  it('should preserve the first type assignment when response.typeOnce is enabled', () => {
+    const app = new Koa({ response: { typeOnce: true } })
+
+    app.use(async (ctx, next) => {
+      ctx.type = 'text/plain'
+      await next()
+    })
+
+    app.use(ctx => {
+      ctx.type = 'json'
+      ctx.body = 'hello world'
+    })
+
+    return request(app.callback())
+      .get('/')
+      .expect('Content-Type', 'text/plain; charset=utf-8')
+      .expect(200)
+      .expect('hello world')
+  })
+
+  it('should preserve stream inference in onion middleware when response.typeOnce is enabled', () => {
+    const app = new Koa({ response: { typeOnce: true } })
+
+    app.use(async (ctx, next) => {
+      await next()
+      ctx.type = 'application/json'
+    })
+
+    app.use(ctx => {
+      ctx.body = fs.createReadStream('LICENSE')
+    })
+
+    return request(app.callback())
+      .get('/')
+      .expect('Content-Type', 'application/octet-stream')
       .expect(200)
   })
 })

@@ -1,0 +1,236 @@
+diff --git a/__tests__/application/index.test.js b/__tests__/application/index.test.js
+index dbb1a8b..005a096 100644
+--- a/__tests__/application/index.test.js
++++ b/__tests__/application/index.test.js
+@@ -73,6 +73,16 @@ describe('app', () => {
+     assert.strictEqual(app.compose, compose)
+   })
+ 
++  it('should default response.typeOnce to false', () => {
++    const app = new Koa()
++    assert.strictEqual(app.response.typeOnce, false)
++  })
++
++  it('should set response.typeOnce from the constructor', () => {
++    const app = new Koa({ response: { typeOnce: true } })
++    assert.strictEqual(app.response.typeOnce, true)
++  })
++
+   it('should have a static property exporting `HttpError` from http-errors library', () => {
+     const CreateError = require('http-errors')
+ 
+diff --git a/__tests__/application/response.test.js b/__tests__/application/response.test.js
+index cd94865..c580e04 100644
+--- a/__tests__/application/response.test.js
++++ b/__tests__/application/response.test.js
+@@ -3,6 +3,7 @@
+ const { describe, it } = require('node:test')
+ const request = require('supertest')
+ const assert = require('node:assert/strict')
++const fs = require('fs')
+ const Koa = require('../..')
+ 
+ describe('app.response', () => {
+@@ -111,4 +112,42 @@ describe('app.response', () => {
+       .get('/')
+       .expect(200)
+   })
++
++  it('should preserve the first type assignment when response.typeOnce is enabled', () => {
++    const app = new Koa({ response: { typeOnce: true } })
++
++    app.use(async (ctx, next) => {
++      ctx.type = 'text/plain'
++      await next()
++    })
++
++    app.use(ctx => {
++      ctx.type = 'json'
++      ctx.body = 'hello world'
++    })
++
++    return request(app.callback())
++      .get('/')
++      .expect('Content-Type', 'text/plain; charset=utf-8')
++      .expect(200)
++      .expect('hello world')
++  })
++
++  it('should preserve stream inference in onion middleware when response.typeOnce is enabled', () => {
++    const app = new Koa({ response: { typeOnce: true } })
++
++    app.use(async (ctx, next) => {
++      await next()
++      ctx.type = 'application/json'
++    })
++
++    app.use(ctx => {
++      ctx.body = fs.createReadStream('LICENSE')
++    })
++
++    return request(app.callback())
++      .get('/')
++      .expect('Content-Type', 'application/octet-stream')
++      .expect(200)
++  })
+ })
+diff --git a/__tests__/response/type.test.js b/__tests__/response/type.test.js
+index d72e125..452b239 100644
+--- a/__tests__/response/type.test.js
++++ b/__tests__/response/type.test.js
+@@ -3,6 +3,7 @@
+ const { describe, it } = require('node:test')
+ const context = require('../../test-helpers/context')
+ const assert = require('node:assert/strict')
++const Koa = require('../..')
+ 
+ describe('ctx.type=', () => {
+   describe('with a mime', () => {
+@@ -49,6 +50,37 @@ describe('ctx.type=', () => {
+       assert(!ctx.response.header['content-type'])
+     })
+   })
++
++  describe('when response.typeOnce is disabled', () => {
++    it('should keep overwrite semantics', () => {
++      const ctx = context()
++      ctx.type = 'text/plain'
++      ctx.type = 'json'
++      assert.strictEqual(ctx.type, 'application/json')
++      assert.strictEqual(ctx.response.header['content-type'], 'application/json; charset=utf-8')
++    })
++  })
++
++  describe('when response.typeOnce is enabled', () => {
++    it('should only set the Content-Type when it is not set', () => {
++      const app = new Koa({ response: { typeOnce: true } })
++      const ctx = context(null, null, app)
++      ctx.type = 'text/plain'
++      ctx.type = 'json'
++      assert.strictEqual(ctx.type, 'text/plain')
++      assert.strictEqual(ctx.response.header['content-type'], 'text/plain; charset=utf-8')
++    })
++
++    it('should allow clearing the Content-Type explicitly', () => {
++      const app = new Koa({ response: { typeOnce: true } })
++      const ctx = context(null, null, app)
++      ctx.type = 'text/plain'
++      ctx.type = null
++      ctx.type = 'json'
++      assert.strictEqual(ctx.type, 'application/json')
++      assert.strictEqual(ctx.response.header['content-type'], 'application/json; charset=utf-8')
++    })
++  })
+ })
+ 
+ describe('ctx.type', () => {
+diff --git a/lib/application.js b/lib/application.js
+index 5a0a972..ae85e3d 100644
+--- a/lib/application.js
++++ b/lib/application.js
+@@ -15,6 +15,7 @@ const onFinished = require('on-finished')
+ const compose = require('koa-compose')
+ const statuses = require('statuses')
+ const { HttpError } = require('http-errors')
++const getType = require('mime-types').contentType
+ 
+ const request = require('./request')
+ const response = require('./response')
+@@ -22,6 +23,8 @@ const context = require('./context')
+ const isStream = require('./is-stream.js')
+ const only = require('./only.js')
+ 
++const responseTypeDescriptor = Object.getOwnPropertyDescriptor(response, 'type')
++
+ /** @typedef {typeof import ('./context') & {
+  *  app: Application
+  *  req: import('http').IncomingMessage
+@@ -48,6 +51,22 @@ function getAsyncLocalStorage (options) {
+   return new AsyncLocalStorage()
+ }
+ 
++function setResponseType (type) {
++  if (type == null) {
++    this.remove('Content-Type')
++    return
++  }
++
++  if (this.typeOnce && this.has('Content-Type')) return
++
++  type = getType(type)
++  if (type) {
++    this.set('Content-Type', type)
++  } else {
++    this.remove('Content-Type')
++  }
++}
++
+ module.exports = class Application extends Emitter {
+   /**
+    * Initialize a new `Application`.
+@@ -72,6 +91,7 @@ module.exports = class Application extends Emitter {
+   constructor (options) {
+     super()
+     options = options || {}
++    const responseOptions = options.response || {}
+     this.proxy = options.proxy || false
+     this.subdomainOffset = options.subdomainOffset || 2
+     this.proxyIpHeader = options.proxyIpHeader || 'X-Forwarded-For'
+@@ -83,6 +103,13 @@ module.exports = class Application extends Emitter {
+     this.context = Object.create(context)
+     this.request = Object.create(request)
+     this.response = Object.create(response)
++    this.response.typeOnce = responseOptions.typeOnce === true
++    Object.defineProperty(this.response, 'type', {
++      configurable: responseTypeDescriptor.configurable,
++      enumerable: responseTypeDescriptor.enumerable,
++      get: responseTypeDescriptor.get,
++      set: setResponseType
++    })
+     // util.inspect.custom support for node 6+
+     /* istanbul ignore else */
+     if (util.inspect.custom) {
+diff --git a/lib/response.js b/lib/response.js
+index 9b67414..17db6a4 100644
+--- a/lib/response.js
++++ b/lib/response.js
+@@ -373,39 +373,12 @@ module.exports = {
+    *
+    * Examples:
+    *
+-   *     this.type = '.html';
+    *     this.type = 'html';
+    *     this.type = 'json';
+    *     this.type = 'application/json';
+    *     this.type = 'png';
+    *
+    * @param {String} type
+-   * @api public
+-   */
+-
+-  set type (type) {
+-    type = getType(type)
+-    if (type) {
+-      this.set('Content-Type', type)
+-    } else {
+-      this.remove('Content-Type')
+-    }
+-  },
+-
+-  /**
+-   * Set the Last-Modified date using a string or a Date.
+-   *
+-   *     this.response.lastModified = new Date();
+-   *     this.response.lastModified = '2013-09-13';
+-   *
+-   * @param {String|Date} val
+-   * @api public
+-   */
+-
+-  set lastModified (val) {
+-    if (typeof val === 'string') val = new Date(val)
+-    this.set('Last-Modified', val.toUTCString())
+-  },
+ 
+   /**
+    * Get the Last-Modified date in Date form, if it exists.

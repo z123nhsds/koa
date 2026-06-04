@@ -3,6 +3,7 @@
 const { describe, it } = require('node:test')
 const context = require('../../test-helpers/context')
 const assert = require('node:assert/strict')
+const Koa = require('../..')
 
 describe('ctx.type=', () => {
   describe('with a mime', () => {
@@ -47,6 +48,37 @@ describe('ctx.type=', () => {
       ctx.type = 'asdf'
       assert(!ctx.type)
       assert(!ctx.response.header['content-type'])
+    })
+  })
+
+  describe('when response.typeOnce is disabled', () => {
+    it('should keep overwrite semantics', () => {
+      const ctx = context()
+      ctx.type = 'text/plain'
+      ctx.type = 'json'
+      assert.strictEqual(ctx.type, 'application/json')
+      assert.strictEqual(ctx.response.header['content-type'], 'application/json; charset=utf-8')
+    })
+  })
+
+  describe('when response.typeOnce is enabled', () => {
+    it('should only set the Content-Type when it is not set', () => {
+      const app = new Koa({ response: { typeOnce: true } })
+      const ctx = context(null, null, app)
+      ctx.type = 'text/plain'
+      ctx.type = 'json'
+      assert.strictEqual(ctx.type, 'text/plain')
+      assert.strictEqual(ctx.response.header['content-type'], 'text/plain; charset=utf-8')
+    })
+
+    it('should allow clearing the Content-Type explicitly', () => {
+      const app = new Koa({ response: { typeOnce: true } })
+      const ctx = context(null, null, app)
+      ctx.type = 'text/plain'
+      ctx.type = null
+      ctx.type = 'json'
+      assert.strictEqual(ctx.type, 'application/json')
+      assert.strictEqual(ctx.response.header['content-type'], 'application/json; charset=utf-8')
     })
   })
 })

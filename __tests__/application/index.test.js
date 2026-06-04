@@ -73,6 +73,16 @@ describe('app', () => {
     assert.strictEqual(app.compose, compose)
   })
 
+  it('should default response.typeOnce to false', () => {
+    const app = new Koa()
+    assert.strictEqual(app.response.typeOnce, false)
+  })
+
+  it('should set response.typeOnce from the constructor', () => {
+    const app = new Koa({ response: { typeOnce: true } })
+    assert.strictEqual(app.response.typeOnce, true)
+  })
+
   it('should have a static property exporting `HttpError` from http-errors library', () => {
     const CreateError = require('http-errors')
 
