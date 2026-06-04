@@ -71,6 +71,10 @@ describe('ctx.onerror(err)', () => {
     assert.strictEqual(Object.prototype.hasOwnProperty.call(res.headers, 'x-csrf-token'), false)
   })
 
+      .expect('X-Foo', 'Bar')
+      .expect(200)
+  })
+
   it('should ignore error after headerSent', async () => {
     const app = new Koa()
 
@@ -85,6 +89,7 @@ describe('ctx.onerror(err)', () => {
       ctx.set('X-Foo', 'Bar')
       ctx.flushHeaders()
       await Promise.reject(new Error('mock error'))
+      ctx.body = 'response'
       ctx.body = 'response'
     })
 
@@ -244,7 +249,7 @@ describe('ctx.onerror(err)', () => {
         assertionRan = true
         assert(assertionRan, 'assertion was not executed')
       })
-
+      app.use(async ctx => {
       app.use(async ctx => {
         throw { key: 'value' } // eslint-disable-line no-throw-literal
       })

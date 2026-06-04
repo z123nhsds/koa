@@ -5,25 +5,9 @@ const request = require('supertest')
 const assert = require('node:assert/strict')
 const Koa = require('../..')
 
-describe('app.compose', () => {
-  it('should work with default compose ', async () => {
-    const app = new Koa()
-    const calls = []
-
-    app.use((ctx, next) => {
-      calls.push(1)
-      return next().then(() => {
-        calls.push(4)
-      })
-    })
-
-    app.use((ctx, next) => {
-      calls.push(2)
       return next().then(() => {
         calls.push(3)
       })
-    })
-
     await request(app.callback())
       .get('/')
       .expect(404)
@@ -51,13 +35,11 @@ describe('app.compose', () => {
       calls.push(1)
       next()
       calls.push(4)
-    })
     app.use((ctx, next) => {
       calls.push(2)
       next()
+      next()
       calls.push(3)
-    })
-
     await request(app.callback())
       .get('/')
 

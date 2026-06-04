@@ -49,6 +49,40 @@ describe('ctx.type=', () => {
       assert(!ctx.response.header['content-type'])
     })
   })
+
+  describe('multiple assignments', () => {
+    it('should always override, not append', () => {
+      const ctx = context()
+      ctx.type = 'html'
+      assert.strictEqual(ctx.type, 'text/html')
+      assert.strictEqual(ctx.response.header['content-type'], 'text/html; charset=utf-8')
+      
+      ctx.type = 'json'
+      assert.strictEqual(ctx.type, 'application/json')
+      assert.strictEqual(ctx.response.header['content-type'], 'application/json; charset=utf-8')
+      
+      ctx.type = 'text/plain'
+      assert.strictEqual(ctx.type, 'text/plain')
+      assert.strictEqual(ctx.response.header['content-type'], 'text/plain; charset=utf-8')
+    })
+  })
+
+  describe('multiple assignments with charset', () => {
+    it('should properly override while respecting charset', () => {
+      const ctx = context()
+      ctx.type = 'text/html; charset=iso-8859-1'
+      assert.strictEqual(ctx.type, 'text/html')
+      assert.strictEqual(ctx.response.header['content-type'], 'text/html; charset=iso-8859-1')
+      
+      ctx.type = 'application/json; charset=utf-16'
+      assert.strictEqual(ctx.type, 'application/json')
+      assert.strictEqual(ctx.response.header['content-type'], 'application/json; charset=utf-16')
+      
+      ctx.type = 'json'
+      assert.strictEqual(ctx.type, 'application/json')
+      assert.strictEqual(ctx.response.header['content-type'], 'application/json; charset=utf-8')
+    })
+  })
 })
 
 describe('ctx.type', () => {

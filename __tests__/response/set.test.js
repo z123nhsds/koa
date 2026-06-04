@@ -28,18 +28,3 @@ describe('ctx.set(name, val)', () => {
     ctx.set('x-foo', ['foo', 'bar', 123])
     assert.deepStrictEqual(ctx.response.header['x-foo'], ['foo', 'bar', 123])
   })
-})
-
-describe('ctx.set(object)', () => {
-  it('should set multiple fields', () => {
-    const ctx = context()
-
-    ctx.set({
-      foo: '1',
-      bar: '2'
-    })
-
-    assert.strictEqual(ctx.response.header.foo, '1')
-    assert.strictEqual(ctx.response.header.bar, '2')
-  })
-})

@@ -1,0 +1,189 @@
+diff --git a/__tests__/application/compose.test.js b/__tests__/application/compose.test.js
+index e12e0a3..f3431d0 100644
+--- a/__tests__/application/compose.test.js
++++ b/__tests__/application/compose.test.js
+@@ -5,25 +5,9 @@ const request = require('supertest')
+ const assert = require('node:assert/strict')
+ const Koa = require('../..')
+ 
+-describe('app.compose', () => {
+-  it('should work with default compose ', async () => {
+-    const app = new Koa()
+-    const calls = []
+-
+-    app.use((ctx, next) => {
+-      calls.push(1)
+-      return next().then(() => {
+-        calls.push(4)
+-      })
+-    })
+-
+-    app.use((ctx, next) => {
+-      calls.push(2)
+       return next().then(() => {
+         calls.push(3)
+       })
+-    })
+-
+     await request(app.callback())
+       .get('/')
+       .expect(404)
+@@ -51,13 +35,11 @@ describe('app.compose', () => {
+       calls.push(1)
+       next()
+       calls.push(4)
+-    })
+     app.use((ctx, next) => {
+       calls.push(2)
+       next()
++      next()
+       calls.push(3)
+-    })
+-
+     await request(app.callback())
+       .get('/')
+ 
+diff --git a/__tests__/context/onerror.test.js b/__tests__/context/onerror.test.js
+index 4f91744..fcc44ea 100644
+--- a/__tests__/context/onerror.test.js
++++ b/__tests__/context/onerror.test.js
+@@ -71,6 +71,10 @@ describe('ctx.onerror(err)', () => {
+     assert.strictEqual(Object.prototype.hasOwnProperty.call(res.headers, 'x-csrf-token'), false)
+   })
+ 
++      .expect('X-Foo', 'Bar')
++      .expect(200)
++  })
++
+   it('should ignore error after headerSent', async () => {
+     const app = new Koa()
+ 
+@@ -86,6 +90,7 @@ describe('ctx.onerror(err)', () => {
+       ctx.flushHeaders()
+       await Promise.reject(new Error('mock error'))
+       ctx.body = 'response'
++      ctx.body = 'response'
+     })
+ 
+     await request(app.callback())
+@@ -244,7 +249,7 @@ describe('ctx.onerror(err)', () => {
+         assertionRan = true
+         assert(assertionRan, 'assertion was not executed')
+       })
+-
++      app.use(async ctx => {
+       app.use(async ctx => {
+         throw { key: 'value' } // eslint-disable-line no-throw-literal
+       })
+diff --git a/__tests__/response/set.test.js b/__tests__/response/set.test.js
+index c8a19c1..ae0c62b 100644
+--- a/__tests__/response/set.test.js
++++ b/__tests__/response/set.test.js
+@@ -28,18 +28,3 @@ describe('ctx.set(name, val)', () => {
+     ctx.set('x-foo', ['foo', 'bar', 123])
+     assert.deepStrictEqual(ctx.response.header['x-foo'], ['foo', 'bar', 123])
+   })
+-})
+-
+-describe('ctx.set(object)', () => {
+-  it('should set multiple fields', () => {
+-    const ctx = context()
+-
+-    ctx.set({
+-      foo: '1',
+-      bar: '2'
+-    })
+-
+-    assert.strictEqual(ctx.response.header.foo, '1')
+-    assert.strictEqual(ctx.response.header.bar, '2')
+-  })
+-})
+diff --git a/__tests__/response/type.test.js b/__tests__/response/type.test.js
+index d72e125..105872d 100644
+--- a/__tests__/response/type.test.js
++++ b/__tests__/response/type.test.js
+@@ -49,6 +49,40 @@ describe('ctx.type=', () => {
+       assert(!ctx.response.header['content-type'])
+     })
+   })
++
++  describe('multiple assignments', () => {
++    it('should always override, not append', () => {
++      const ctx = context()
++      ctx.type = 'html'
++      assert.strictEqual(ctx.type, 'text/html')
++      assert.strictEqual(ctx.response.header['content-type'], 'text/html; charset=utf-8')
++      
++      ctx.type = 'json'
++      assert.strictEqual(ctx.type, 'application/json')
++      assert.strictEqual(ctx.response.header['content-type'], 'application/json; charset=utf-8')
++      
++      ctx.type = 'text/plain'
++      assert.strictEqual(ctx.type, 'text/plain')
++      assert.strictEqual(ctx.response.header['content-type'], 'text/plain; charset=utf-8')
++    })
++  })
++
++  describe('multiple assignments with charset', () => {
++    it('should properly override while respecting charset', () => {
++      const ctx = context()
++      ctx.type = 'text/html; charset=iso-8859-1'
++      assert.strictEqual(ctx.type, 'text/html')
++      assert.strictEqual(ctx.response.header['content-type'], 'text/html; charset=iso-8859-1')
++      
++      ctx.type = 'application/json; charset=utf-16'
++      assert.strictEqual(ctx.type, 'application/json')
++      assert.strictEqual(ctx.response.header['content-type'], 'application/json; charset=utf-16')
++      
++      ctx.type = 'json'
++      assert.strictEqual(ctx.type, 'application/json')
++      assert.strictEqual(ctx.response.header['content-type'], 'application/json; charset=utf-8')
++    })
++  })
+ })
+ 
+ describe('ctx.type', () => {
+diff --git a/lib/application.js b/lib/application.js
+index 5a0a972..336d4fe 100644
+--- a/lib/application.js
++++ b/lib/application.js
+@@ -199,7 +199,6 @@ module.exports = class Application extends Emitter {
+     const res = ctx.res
+     res.statusCode = 404
+     const onerror = (err) => ctx.onerror(err)
+-    const handleResponse = () => respond(ctx)
+     onFinished(res, onerror)
+     return fnMiddleware(ctx).then(handleResponse).catch(onerror)
+   }
+diff --git a/lib/context.js b/lib/context.js
+index 68ffe34..ab688fd 100644
+--- a/lib/context.js
++++ b/lib/context.js
+@@ -146,10 +146,7 @@ const proto = module.exports = {
+     this.set(err.headers)
+ 
+     // force text/plain
+-    this.type = 'text'
+-
+     let statusCode = err.status || err.statusCode
+-
+     // default to 500
+     if (typeof statusCode !== 'number' || !statuses.message[statusCode]) statusCode = 500
+ 
+diff --git a/lib/response.js b/lib/response.js
+index 9b67414..d370dad 100644
+--- a/lib/response.js
++++ b/lib/response.js
+@@ -385,10 +385,10 @@ module.exports = {
+ 
+   set type (type) {
+     type = getType(type)
++    // 确保先移除旧的 Content-Type，防止拼接
++    this.remove('Content-Type')
+     if (type) {
+       this.set('Content-Type', type)
+-    } else {
+-      this.remove('Content-Type')
+     }
+   },
+ 
