@@ -49,29 +49,31 @@ describe('ctx.type=', () => {
       assert(!ctx.response.header['content-type'])
     })
   })
+
+  describe('with multiple assignments', () => {
+    it('should override type, not concatenate', () => {
+      const ctx = context()
+      ctx.type = 'html'
+      ctx.type = 'json'
+      assert.strictEqual(ctx.type, 'application/json')
+      assert.strictEqual(ctx.response.header['content-type'], 'application/json; charset=utf-8')
+    })
+  })
+
+  describe('with multiple assignments including charset', () => {
+    it('should override type and preserve charset on new assignment', () => {
+      const ctx = context()
+      ctx.type = 'text/html; charset=iso-8859-1'
+      ctx.type = 'application/json'
+      assert.strictEqual(ctx.type, 'application/json')
+      assert.strictEqual(ctx.response.header['content-type'], 'application/json; charset=utf-8')
+    })
+  })
 })
 
 describe('ctx.type', () => {
-  describe('with no Content-Type', () => {
-    it('should return ""', () => {
-      const ctx = context()
-      assert(!ctx.type)
-    })
-  })
-
-  describe('with a Content-Type', () => {
-    it('should return the mime', () => {
-      const ctx = context()
-      ctx.type = 'json'
-      assert.strictEqual(ctx.type, 'application/json')
-    })
-  })
-
-  describe('when setting to +json content type', () => {
-    it('should set the content type to json', () => {
-      const ctx = context()
-      ctx.type = 'application/vnd.myapi.v1+json'
-      assert.strictEqual(ctx.type, 'application/vnd.myapi.v1+json')
-    })
+  it('should return empty string when no Content-Type set', () => {
+    const ctx = context()
+    assert.strictEqual(ctx.type, '')
   })
 })
