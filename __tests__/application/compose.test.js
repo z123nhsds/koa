@@ -5,11 +5,11 @@ const request = require('supertest')
 const assert = require('node:assert/strict')
 const Koa = require('../..')
 
-describe('app.compose', () => {
-  it('should work with default compose ', async () => {
+describe('app.compose()', () => {
+  it('should allow custom compose', async () => {
     const app = new Koa()
     const calls = []
-
+    
     app.use((ctx, next) => {
       calls.push(1)
       return next().then(() => {

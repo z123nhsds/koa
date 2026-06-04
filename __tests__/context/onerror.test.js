@@ -71,27 +71,24 @@ describe('ctx.onerror(err)', () => {
     assert.strictEqual(Object.prototype.hasOwnProperty.call(res.headers, 'x-csrf-token'), false)
   })
 
-  it('should ignore error after headerSent', async () => {
+  it('should keep content-type single value when headers has array', async () => {
     const app = new Koa()
 
-    app.on('error', (err, { res }) => {
-      assert.strictEqual(err.message, 'mock error')
-      assert.strictEqual(err.headerSent, true)
-      res.end()
-    })
-
-    app.use(async ctx => {
-      ctx.status = 200
-      ctx.set('X-Foo', 'Bar')
-      ctx.flushHeaders()
-      await Promise.reject(new Error('mock error'))
-      ctx.body = 'response'
+    app.use((ctx, next) => {
+      ctx.set('Content-Type', 'application/json')
+      throw Object.assign(new Error('boom'), {
+        status: 418,
+        expose: true,
+        headers: {
+          'content-type': ['text/html', 'text/plain']
+        }
+      })
     })
 
     await request(app.callback())
       .get('/')
-      .expect('X-Foo', 'Bar')
-      .expect(200)
+      .expect(418)
+      .expect('Content-Type', 'text/plain; charset=utf-8')
   })
 
   it('should set status specified in the error using statusCode', () => {

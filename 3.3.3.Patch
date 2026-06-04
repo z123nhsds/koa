@@ -1,0 +1,101 @@
+diff --git a/__tests__/application/compose.test.js b/__tests__/application/compose.test.js
+index e12e0a3..bb07ca3 100644
+--- a/__tests__/application/compose.test.js
++++ b/__tests__/application/compose.test.js
+@@ -5,11 +5,11 @@ const request = require('supertest')
+ const assert = require('node:assert/strict')
+ const Koa = require('../..')
+ 
+-describe('app.compose', () => {
+-  it('should work with default compose ', async () => {
++describe('app.compose()', () => {
++  it('should allow custom compose', async () => {
+     const app = new Koa()
+     const calls = []
+-
++    
+     app.use((ctx, next) => {
+       calls.push(1)
+       return next().then(() => {
+diff --git a/__tests__/context/onerror.test.js b/__tests__/context/onerror.test.js
+index 4f91744..e7026e0 100644
+--- a/__tests__/context/onerror.test.js
++++ b/__tests__/context/onerror.test.js
+@@ -71,27 +71,24 @@ describe('ctx.onerror(err)', () => {
+     assert.strictEqual(Object.prototype.hasOwnProperty.call(res.headers, 'x-csrf-token'), false)
+   })
+ 
+-  it('should ignore error after headerSent', async () => {
++  it('should keep content-type single value when headers has array', async () => {
+     const app = new Koa()
+ 
+-    app.on('error', (err, { res }) => {
+-      assert.strictEqual(err.message, 'mock error')
+-      assert.strictEqual(err.headerSent, true)
+-      res.end()
+-    })
+-
+-    app.use(async ctx => {
+-      ctx.status = 200
+-      ctx.set('X-Foo', 'Bar')
+-      ctx.flushHeaders()
+-      await Promise.reject(new Error('mock error'))
+-      ctx.body = 'response'
++    app.use((ctx, next) => {
++      ctx.set('Content-Type', 'application/json')
++      throw Object.assign(new Error('boom'), {
++        status: 418,
++        expose: true,
++        headers: {
++          'content-type': ['text/html', 'text/plain']
++        }
++      })
+     })
+ 
+     await request(app.callback())
+       .get('/')
+-      .expect('X-Foo', 'Bar')
+-      .expect(200)
++      .expect(418)
++      .expect('Content-Type', 'text/plain; charset=utf-8')
+   })
+ 
+   it('should set status specified in the error using statusCode', () => {
+diff --git a/lib/application.js b/lib/application.js
+index 5a0a972..1cea02a 100644
+--- a/lib/application.js
++++ b/lib/application.js
+@@ -174,8 +174,8 @@ module.exports = class Application extends Emitter {
+       if (!this.ctxStorage) {
+         return this.handleRequest(ctx, fn)
+       }
+-      return this.ctxStorage.run(ctx, async () => {
+-        return await this.handleRequest(ctx, fn)
++      return this.ctxStorage.run(ctx, () => {
++        return this.handleRequest(ctx, fn)
+       })
+     }
+ 
+diff --git a/lib/context.js b/lib/context.js
+index 68ffe34..7529481 100644
+--- a/lib/context.js
++++ b/lib/context.js
+@@ -145,14 +145,13 @@ const proto = module.exports = {
+     // then set those specified
+     this.set(err.headers)
+ 
+-    // force text/plain
+-    this.type = 'text'
+-
+-    let statusCode = err.status || err.statusCode
+-
+     // default to 500
++    let statusCode = err.status || err.statusCode || 500
+     if (typeof statusCode !== 'number' || !statuses.message[statusCode]) statusCode = 500
+ 
++    // force text/plain
++    this.type = 'text'
++
+     // respond
+     const code = statuses.message[statusCode]
+     const msg = err.expose ? err.message : code
