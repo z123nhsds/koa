@@ -1,9 +1,59 @@
-diff --git a/3.2.2.patch b/3.2.2.patch
-new file mode 100644
-index 0000000..84abb09
---- /dev/null
-+++ b/3.2.2.patch
-@@ -0,0 +1,3 @@
-+diff --git a/3.2.2.patch b/3.2.2.patch
-+new file mode 100644
-+index 0000000..e69de29
+diff --git a/__tests__/application/response.test.js b/__tests__/application/response.test.js
+index cd94865..29112d8 100644
+--- a/__tests__/application/response.test.js
++++ b/__tests__/application/response.test.js
+@@ -15,6 +15,7 @@ describe('app.response', () => {
+   const app6 = new Koa()
+   const app7 = new Koa()
+   const app8 = new Koa()
++  const app9 = new Koa()
+ 
+   it('should merge properties', () => {
+     app1.use((ctx, next) => {
+@@ -111,4 +112,19 @@ describe('app.response', () => {
+       .get('/')
+       .expect(200)
+   })
++
++  it('should not assign multiple content-type values from ctx.set(object) before ctx.body', () => {
++    app9.use((ctx, next) => {
++      assert.throws(() => {
++        ctx.set({
++          'Content-Type': ['image/jpg', 'application/json']
++        })
++      }, Error)
++      ctx.body = {}
++    })
++
++    return request(app9.callback())
++      .get('/')
++      .expect(200)
++  })
+ })
+diff --git a/lib/response.js b/lib/response.js
+index 9b67414..2e532ec 100644
+--- a/lib/response.js
++++ b/lib/response.js
+@@ -537,13 +537,17 @@ module.exports = {
+   set (field, val) {
+     if (this.headerSent || !field) return
+ 
+-    if (typeof field === 'string') {
+-      if (field.toLowerCase() === 'content-type') {
+-        assert(!Array.isArray(val), 'Assign multiple Content-Type for response header is not allowed')
++    const setHeader = (header, value) => {
++      if (header.toLowerCase() === 'content-type') {
++        assert(!Array.isArray(value), 'Assign multiple Content-Type for response header is not allowed')
+       }
+-      this.res.setHeader(field, val)
++      this.res.setHeader(header, value)
++    }
++
++    if (typeof field === 'string') {
++      setHeader(field, val)
+     } else {
+-      Object.keys(field).forEach(header => this.res.setHeader(header, field[header]))
++      Object.keys(field).forEach(header => setHeader(header, field[header]))
+     }
+   },
+ 

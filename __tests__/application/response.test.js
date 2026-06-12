@@ -15,6 +15,7 @@ describe('app.response', () => {
   const app6 = new Koa()
   const app7 = new Koa()
   const app8 = new Koa()
+  const app9 = new Koa()
 
   it('should merge properties', () => {
     app1.use((ctx, next) => {
@@ -108,6 +109,21 @@ describe('app.response', () => {
     })
 
     return request(app8.callback())
+      .get('/')
+      .expect(200)
+  })
+
+  it('should not assign multiple content-type values from ctx.set(object) before ctx.body', () => {
+    app9.use((ctx, next) => {
+      assert.throws(() => {
+        ctx.set({
+          'Content-Type': ['image/jpg', 'application/json']
+        })
+      }, Error)
+      ctx.body = {}
+    })
+
+    return request(app9.callback())
       .get('/')
       .expect(200)
   })
