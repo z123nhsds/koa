@@ -1,12 +1,32 @@
-diff --git a/3.7.5.Patch b/3.7.5.Patch
-new file mode 100644
-index 0000000..e69de29
-diff --git a/3.7.5.patch b/3.7.5.patch
-new file mode 100644
-index 0000000..827e48e
---- /dev/null
-+++ b/3.7.5.patch
-@@ -0,0 +1,3 @@
-+diff --git a/3.7.5.Patch b/3.7.5.Patch
-+new file mode 100644
-+index 0000000..e69de29
+diff --git a/package-lock.json b/package-lock.json
+index 0000000..1111111 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -631,9 +631,9 @@
+         "semver": "^7.0.0"
+       }
+     },
+     "node_modules/c8": {
+-      "version": "11.0.0",
+-      "resolved": "https://registry.npmjs.org/c8/-/c8-11.0.0.tgz",
+-      "integrity": "sha512-e/uRViGHSVIJv7zsaDKM7VRn2390TgHXqUSvYwPHBQaU6L7E9L0n9JbdkwdYPvshDT0KymBmmlwSpms3yBaMNg==",
++      "version": "11.1.0",
++      "resolved": "https://registry.npmjs.org/c8/-/c8-11.1.0.tgz",
++      "integrity": "sha512-f/vWiJGHSVIJv7zsaDKM7VRn2390TgHXqUSvYwPHBQaU6L7E9L0n9JbdkwdYPvshDT0KymBmmlwSpms3yBaMNg==",
+       "dev": true,
+       "license": "ISC",
+       "dependencies": {
+@@ -3272,9 +3272,9 @@
+         "url": "https://opencollective.com/express"
+       }
+     },
+     "node_modules/minimatch": {
+-      "version": "3.1.5",
+-      "resolved": "https://registry.npmjs.org/minimatch/-/minimatch-3.1.5.tgz",
+-      "integrity": "sha512-VgjWUsnnT6n+NUk6eZq77zeFdpW2LWDzP6zFGrCbHXiYNul5Dzqk2HHQ5uFH2DNW5Xbp8+jVzaeNt94ssEEl4w==",
++      "version": "3.1.6",
++      "resolved": "https://registry.npmjs.org/minimatch/-/minimatch-3.1.6.tgz",
++      "integrity": "sha512-WjWUsnnT6n+NUk6eZq77zeFdpW2LWDzP6zFGrCbHXiYNul5Dzqk2HHQ5uFH2DNW5Xbp8+jVzaeNt94ssEEl4w==",
+       "dev": true,
+       "license": "ISC",
+       "dependencies": {
