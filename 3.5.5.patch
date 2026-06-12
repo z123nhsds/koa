@@ -1,12 +1,21 @@
-diff --git a/3.5.5.Patch b/3.5.5.Patch
-new file mode 100644
-index 0000000..e69de29
-diff --git a/3.5.5.patch b/3.5.5.patch
-new file mode 100644
-index 0000000..2668079
---- /dev/null
-+++ b/3.5.5.patch
-@@ -0,0 +1,3 @@
-+diff --git a/3.5.5.Patch b/3.5.5.Patch
-+new file mode 100644
-+index 0000000..e69de29
++const { describe, it } = require('node:test')
++const request = require('supertest')
++const assert = require('node:assert/strict')
++const Koa = require('../..')
++
++describe('bug: response content-type value amount as one', () => {
++  const app = new Koa()
++
++  it('should throw TypeError when accessing response.type after setting Content-Type to array (bug before fix)', () => {
++    app.use((ctx) => {
++      ctx.set('Content-Type', ['image/jpg', 'application/json'])
++      ctx.body = {}
++      const type = ctx.type
++      assert.fail('should not reach here - TypeError: type.split is not a function expected')
++    })
++
++    return request(app.callback())
++      .get('/')
++      .expect(500)
++  })
++})
