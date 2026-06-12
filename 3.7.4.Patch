@@ -1,0 +1,84 @@
+diff --git a/package-lock.json b/package-lock.json
+index abc123..def456 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -92,7 +92,7 @@
+     "c8": "^11.0.0"
+   },
+   "dependencies": {
+-    "minimatch": "^3.1.2",
++    "minimatch": "^3.1.5",
+     ...
+   }
+ };
+@@ -3273,13 +3273,13 @@
+   },
+   "node_modules/minimatch": {
+-    "version": "3.1.2",
+-    "resolved": "https://registry.npmjs.org/minimatch/-/minimatch-3.1.2.tgz",
+-    "integrity": "sha512-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx==",
++    "version": "3.1.5",
++    "resolved": "https://registry.npmjs.org/minimatch/-/minimatch-3.1.5.tgz",
++    "integrity": "sha512-VgjWUsnnT6n+NUk6eZq77zeFdpW2LWDzP6zFGrCbHXiYNul5Dzqk2HHQ5uFH2DNW5Xbp8+jVzaeNt94ssEEl4w==",
+     "dev": true,
+     "license": "ISC",
+     "dependencies": {
+-      "brace-expansion": "^1.1.6"
++      "brace-expansion": "^1.1.7"
+     },
+     "engines": {
+       "node": "*"
+@@ -632,14 +632,28 @@
+   },
+   "node_modules/c8": {
+-    "version": "11.0.0",
+-    "resolved": "https://registry.npmjs.org/c8/-/c8-11.0.0.tgz",
+-    "integrity": "sha512-e/uRViGHSVIJv7zsaDKM7VRn2390TgHXqUSvYwPHBQaU6L7E9L0n9JbdkwdYPvshDT0KymBmmlwSpms3yBaMNg==",
++    "version": "11.1.0",
++    "resolved": "https://registry.npmjs.org/c8/-/c8-11.1.0.tgz",
++    "integrity": "sha510-yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy==",
+     "dev": true,
+     "license": "ISC",
+     "dependencies": {
+       "@bcoe/v8-coverage": "^1.0.1",
+       "@istanbuljs/schema": "^0.1.3",
+-      "find-up": "^4.1.0",
++      "find-up": "^5.0.0",
+       "foreground-child": "^3.1.1",
+       "istanbul-lib-coverage": "^3.2.0",
+       "istanbul-lib-report": "^3.0.1",
+-      "istanbul-reports": "^3.1.5",
++      "istanbul-reports": "^3.1.6",
+       "test-exclude": "^8.0.0",
++      "v8-to-istanbul": "^9.1.0",
++      "yargs": "^17.7.2",
++      "yargs-parser": "^21.1.1"
++    },
++    "bin": {
++      "c8": "bin/c8.js"
++    },
++    "engines": {
++      "node": "20 || >=22"
++    },
++    "peerDependencies": {
++      "monocart-coverage-reports": "^2"
++    },
++    "peerDependenciesMeta": {
++      "monocart-coverage-reports": {
++        "optional": true
++      }
+     }
+   },
+diff --git a/package.json b/package.json
+index 789abc..123def 100644
+--- a/package.json
++++ b/package.json
+@@ -69,7 +69,7 @@
+   },
+   "devDependencies": {
+     "c8": "^11.0.0",
+-    "gen-esm-wrapper": "^1.1.3",
++    "gen-esm-wrapper": "^1.1.6",
+     "snazzy": "^9.0.0",
+     "standard": "^17.1.2",
+     "supertest": "^7.1.1"
