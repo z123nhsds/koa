@@ -1,11 +1,13 @@
 diff --git a/lib/response.js b/lib/response.js
-index 9b67414..d081712 100644
 --- a/lib/response.js
 +++ b/lib/response.js
-@@ -564,6 +564,10 @@ module.exports = {
+@@ -563,6 +563,11 @@ module.exports = {
+    * @api public
     */
  
    append (field, val) {
++    // Fix: Prevent multiple Content-Type values (koajs#1899)
++    // HTTP spec requires Content-Type to be a single-value header
 +    if (field.toLowerCase() === 'content-type') {
 +      assert(!this.has('Content-Type'), 'Assign multiple Content-Type for response header is not allowed')
 +    }
