@@ -1,0 +1,30 @@
+const Koa = require('koa');
+const request = require('supertest');
+const assert = require('node:assert');
+
+describe('Bug: Multiple Content-Type headers', () => {
+  it('should trigger the bug when Content-Type is set to an array', async () => {
+    const app = new Koa();
+    
+    app.use(ctx => {
+      // 触发 bug 的原始代码：传入数组导致内部设置了多个 Content-Type
+      // 在修复前，这会被底层 Node.js 接收，导致后续逻辑崩溃
+      ctx.response.set('Content-Type', ['text/html', 'text/plain']);
+      
+      // 这时如果调用 ctx.response.type getter，会崩溃
+      // 因为 ctx.response.get('Content-Type') 会返回数组
+      // 而 type getter 内部直接调用 type.split(';', 1)[0]
+      // 数组没有 split 方法，抛出 TypeError: type.split is not a function
+      try {
+        const type = ctx.response.type;
+      } catch (e) {
+        console.error('Triggered bug:', e.message);
+      }
+      
+      ctx.body = 'Hello World';
+    });
+
+    const server = app.callback();
+    await request(server).get('/');
+  });
+});
